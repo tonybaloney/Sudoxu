@@ -58,7 +58,7 @@ export default function App() {
   const [comboScore, setComboScore] = useState(0); // Score from current combo
   const [comboBarWidth] = useState(new Animated.Value(0)); // Animated width for combo bar
 
-  const COMBO_DURATION = 10000; // 10 seconds in milliseconds
+  const COMBO_DURATION = 30000; // 30 seconds in milliseconds
   const BASE_SCORE = 100; // Base score for each correct move
 
   // Timer effect
