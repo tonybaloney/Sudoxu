@@ -10,16 +10,10 @@ import {
   StatusBar,
   ScrollView,
   Modal,
+  Animated,
 } from 'react-native';
-import { StatusBar as Expo          <TouchableOpacity
-            style={styles.difficultyButton}
-            onPress={() => startNewGame('easy')}
-          >
-            <Text style={styles.difficultyButtonText}>Easy</Text>
-            <Text style={styles.difficultyDescription}>~196 filled cells + hints</Text>
-          </TouchableOpacity>ar } from 'expo-status-bar';
+import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Game utilities
 import { generatePuzzle, isValidMove, isSolved, getConflicts, getNextValueToTackle } from './utils/gameLogic';
@@ -57,6 +51,16 @@ export default function App() {
   const [conflicts, setConflicts] = useState([]);
   const [nextValueHint, setNextValueHint] = useState(null);
 
+  // Combo system state
+  const [comboTimer, setComboTimer] = useState(0); // Time remaining for combo (in milliseconds)
+  const [comboMultiplier, setComboMultiplier] = useState(0); // Current combo multiplier
+  const [totalScore, setTotalScore] = useState(0); // Total accumulated score
+  const [comboScore, setComboScore] = useState(0); // Score from current combo
+  const [comboBarWidth] = useState(new Animated.Value(0)); // Animated width for combo bar
+
+  const COMBO_DURATION = 10000; // 10 seconds in milliseconds
+  const BASE_SCORE = 100; // Base score for each correct move
+
   // Timer effect
   useEffect(() => {
     let interval;
@@ -67,6 +71,40 @@ export default function App() {
     }
     return () => clearInterval(interval);
   }, [gameState, gameStartTime]);
+
+  // Combo timer effect
+  useEffect(() => {
+    let interval;
+    if (comboTimer > 0 && gameState === 'playing') {
+      interval = setInterval(() => {
+        setComboTimer(prev => {
+          const newTime = prev - 100;
+          if (newTime <= 0) {
+            // Combo expired
+            setComboMultiplier(0);
+            setComboScore(0);
+            Animated.timing(comboBarWidth, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: false,
+            }).start();
+            return 0;
+          }
+          
+          // Update combo bar animation
+          const percentage = (newTime / COMBO_DURATION) * 100;
+          Animated.timing(comboBarWidth, {
+            toValue: percentage,
+            duration: 100,
+            useNativeDriver: false,
+          }).start();
+          
+          return newTime;
+        });
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [comboTimer, gameState]);
 
   // Update hint when board changes (only in easy mode)
   useEffect(() => {
@@ -86,6 +124,41 @@ export default function App() {
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  // Handle successful move and combo logic
+  const handleSuccessfulMove = () => {
+    const moveScore = BASE_SCORE * Math.max(1, comboMultiplier);
+    
+    if (comboTimer > 0) {
+      // Extend combo
+      setComboMultiplier(prev => prev + 1);
+      setComboScore(prev => prev + moveScore);
+    } else {
+      // Start new combo
+      setComboMultiplier(1);
+      setComboScore(moveScore);
+    }
+    
+    // Reset combo timer to full duration
+    setComboTimer(COMBO_DURATION);
+    
+    // Add to total score
+    setTotalScore(prev => prev + moveScore);
+    
+    // Animate combo bar to full
+    Animated.timing(comboBarWidth, {
+      toValue: 100,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+    
+    // Enhanced haptic feedback for combos
+    if (comboMultiplier >= 3) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
   // Start new game
   const startNewGame = (selectedDifficulty) => {
     const { puzzle, solution } = generatePuzzle(selectedDifficulty);
@@ -97,7 +170,14 @@ export default function App() {
     setDifficulty(selectedDifficulty);
     setGameState('playing');
     setConflicts([]);
-    setNextValueHint(null); // Reset hint
+    setNextValueHint(null);
+    
+    // Reset combo and score state
+    setComboTimer(0);
+    setComboMultiplier(0);
+    setTotalScore(0);
+    setComboScore(0);
+    comboBarWidth.setValue(0);
   };
 
   // Handle cell selection
@@ -125,8 +205,18 @@ export default function App() {
     setConflicts(newConflicts);
     
     if (newConflicts.length === 0) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Successful move - trigger combo logic
+      handleSuccessfulMove();
     } else {
+      // Failed move - reset combo
+      setComboTimer(0);
+      setComboMultiplier(0);
+      setComboScore(0);
+      Animated.timing(comboBarWidth, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
     
@@ -135,10 +225,15 @@ export default function App() {
     // Check if solved
     if (isSolved(newBoard)) {
       setGameState('won');
+      
+      // Bonus score for completion
+      const completionBonus = 1000;
+      setTotalScore(prev => prev + completionBonus);
+      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         'Congratulations!',
-        `You solved the puzzle in ${formatTime(elapsedTime)}!`,
+        `You solved the puzzle in ${formatTime(elapsedTime)}!\nFinal Score: ${totalScore + completionBonus} points`,
         [{ text: 'New Game', onPress: () => setGameState('menu') }]
       );
     }
@@ -156,6 +251,44 @@ export default function App() {
     setBoard(newBoard);
     setConflicts([]);
     Haptics.selectionAsync();
+  };
+
+  // Render combo bar
+  const renderComboBar = () => {
+    if (comboMultiplier === 0) return null;
+    
+    const comboColor = comboMultiplier >= 5 ? '#FF6B35' : 
+                      comboMultiplier >= 3 ? '#FFB347' : '#4CAF50';
+    
+    return (
+      <View style={styles.comboContainer}>
+        <View style={styles.comboInfo}>
+          <Text style={styles.comboText}>
+            🔥 Combo x{comboMultiplier} 
+          </Text>
+          <Text style={styles.comboScoreText}>
+            +{comboScore} pts
+          </Text>
+        </View>
+        <View style={styles.comboBarContainer}>
+          <Animated.View 
+            style={[
+              styles.comboBar,
+              { 
+                backgroundColor: comboColor,
+                width: comboBarWidth.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: ['0%', '100%'],
+                })
+              }
+            ]} 
+          />
+        </View>
+        <Text style={styles.comboTimeText}>
+          {Math.ceil(comboTimer / 1000)}s
+        </Text>
+      </View>
+    );
   };
 
   // Render game cell
@@ -278,8 +411,14 @@ export default function App() {
       
       <View style={styles.header}>
         <Text style={styles.title}>SUDOXU</Text>
-        <Text style={styles.timer}>Time: {formatTime(elapsedTime)}</Text>
+        <View style={styles.statsContainer}>
+          <Text style={styles.timer}>Time: {formatTime(elapsedTime)}</Text>
+          <Text style={styles.scoreText}>Score: {totalScore}</Text>
+        </View>
       </View>
+      
+      {/* Combo Bar */}
+      {renderComboBar()}
       
       {/* Hint bar for easy mode */}
       {difficulty === 'easy' && nextValueHint && nextValueHint.value && (
@@ -355,10 +494,62 @@ const styles = StyleSheet.create({
     color: '#E3F2FD',
     marginTop: 4,
   },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 8,
+  },
   timer: {
     fontSize: 18,
     color: '#FFFFFF',
-    marginTop: 8,
+  },
+  scoreText: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  comboContainer: {
+    backgroundColor: '#FFF8E1',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFB74D',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  comboInfo: {
+    flex: 1,
+  },
+  comboText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#E65100',
+  },
+  comboScoreText: {
+    fontSize: 12,
+    color: '#FF6F00',
+    fontWeight: '600',
+  },
+  comboBarContainer: {
+    flex: 2,
+    height: 8,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginHorizontal: 12,
+    overflow: 'hidden',
+  },
+  comboBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  comboTimeText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#E65100',
+    minWidth: 25,
+    textAlign: 'center',
   },
   hintBar: {
     backgroundColor: '#FFF3E0',
