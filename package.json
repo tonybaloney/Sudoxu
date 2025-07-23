@@ -2,6 +2,7 @@
   "name": "sudoxu",
   "version": "1.0.0",
   "description": "Hexadecimal Sudoku Mobile Game",
+  "homepage": "https://tonybaloney.github.io/Sudoxu",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
