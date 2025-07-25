@@ -260,6 +260,9 @@ export const generatePuzzle = (difficulty = 'medium') => {
     case 'hard':
       cellsToRemove = 180; // Leave ~76 cells filled
       break;
+    case 'test':
+      cellsToRemove = 2; // Leave only 2 cells empty for testing
+      break;
     default:
       cellsToRemove = 140;
   }

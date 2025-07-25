@@ -11,6 +11,7 @@ import {
   ScrollView,
   Modal,
   Animated,
+  Platform,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -57,9 +58,54 @@ export default function App() {
   const [totalScore, setTotalScore] = useState(0); // Total accumulated score
   const [comboScore, setComboScore] = useState(0); // Score from current combo
   const [comboBarWidth] = useState(new Animated.Value(0)); // Animated width for combo bar
+  
+  // Win modal state
+  const [showWinModal, setShowWinModal] = useState(false);
+  const [winData, setWinData] = useState({ time: '', score: 0 });
 
   const COMBO_DURATION = 30000; // 30 seconds in milliseconds
   const BASE_SCORE = 100; // Base score for each correct move
+
+  // Safe haptics functions that work on all platforms
+  const safeHapticSelection = () => {
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.selectionAsync();
+      } catch (error) {
+        // Fallback for unsupported platforms
+      }
+    }
+  };
+
+  const safeHapticSuccess = () => {
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (error) {
+        // Fallback for unsupported platforms
+      }
+    }
+  };
+
+  const safeHapticError = () => {
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch (error) {
+        // Fallback for unsupported platforms
+      }
+    }
+  };
+
+  const safeHapticImpact = (style) => {
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(style);
+      } catch (error) {
+        // Fallback for unsupported platforms
+      }
+    }
+  };
 
   // Timer effect
   useEffect(() => {
@@ -153,9 +199,9 @@ export default function App() {
     
     // Enhanced haptic feedback for combos
     if (comboMultiplier >= 3) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      safeHapticImpact(Haptics.ImpactFeedbackStyle.Heavy);
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      safeHapticSuccess();
     }
   };
 
@@ -180,13 +226,34 @@ export default function App() {
     comboBarWidth.setValue(0);
   };
 
+  // Secret testing mode - accessible by long press on title
+  const activateTestMode = () => {
+    const { puzzle, solution } = generatePuzzle('test');
+    setBoard(puzzle);
+    setInitialBoard(puzzle.map(row => [...row]));
+    setSelectedCell(null);
+    setGameStartTime(Date.now());
+    setElapsedTime(0);
+    setDifficulty('test');
+    setGameState('playing');
+    setConflicts([]);
+    setNextValueHint(null);
+    
+    // Reset combo and score state
+    setComboTimer(0);
+    setComboMultiplier(0);
+    setTotalScore(0);
+    setComboScore(0);
+    comboBarWidth.setValue(0);
+  };
+
   // Handle cell selection
   const selectCell = (row, col) => {
     if (initialBoard && initialBoard[row][col] !== null) {
       return; // Can't select pre-filled cells
     }
     
-    Haptics.selectionAsync();
+    safeHapticSelection();
     setSelectedCell([row, col]);
   };
 
@@ -217,25 +284,35 @@ export default function App() {
         duration: 200,
         useNativeDriver: false,
       }).start();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      safeHapticError();
     }
     
     setBoard(newBoard);
     
     // Check if solved
+    console.log('Checking if solved...');
     if (isSolved(newBoard)) {
+      console.log('Game is solved!');
       setGameState('won');
       
       // Bonus score for completion
       const completionBonus = 1000;
+      const finalScore = totalScore + completionBonus;
       setTotalScore(prev => prev + completionBonus);
       
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        'Congratulations!',
-        `You solved the puzzle in ${formatTime(elapsedTime)}!\nFinal Score: ${totalScore + completionBonus} points`,
-        [{ text: 'New Game', onPress: () => setGameState('menu') }]
-      );
+      safeHapticSuccess();
+      
+      // Use setTimeout to ensure state updates are processed first
+      setTimeout(() => {
+        console.log('Showing congratulations alert');
+        setWinData({
+          time: formatTime(elapsedTime),
+          score: finalScore
+        });
+        setShowWinModal(true);
+      }, 500);
+    } else {
+      console.log('Game not solved yet');
     }
   };
 
@@ -250,7 +327,7 @@ export default function App() {
     newBoard[row][col] = null;
     setBoard(newBoard);
     setConflicts([]);
-    Haptics.selectionAsync();
+    safeHapticSelection();
   };
 
   // Render combo bar
@@ -360,6 +437,52 @@ export default function App() {
     return luminance > 0.5 ? '#000000' : '#FFFFFF';
   };
 
+  // Render win modal
+  const renderWinModal = () => (
+    <Modal
+      visible={showWinModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowWinModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>🎉 Congratulations! 🎉</Text>
+          <Text style={styles.modalText}>
+            You solved the hexadecimal Sudoku puzzle!
+          </Text>
+          <View style={styles.modalStats}>
+            <Text style={styles.modalStatText}>Time: {winData.time}</Text>
+            <Text style={styles.modalStatText}>Final Score: {winData.score} points</Text>
+          </View>
+          <Text style={styles.modalSubtext}>Great job!</Text>
+          
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonPrimary]}
+              onPress={() => {
+                setShowWinModal(false);
+                setGameState('menu');
+              }}
+            >
+              <Text style={styles.modalButtonText}>New Game</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonSecondary]}
+              onPress={() => {
+                setShowWinModal(false);
+                setGameState('menu');
+              }}
+            >
+              <Text style={styles.modalButtonTextSecondary}>Menu</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   // Render menu screen
   if (gameState === 'menu') {
     return (
@@ -368,7 +491,13 @@ export default function App() {
         <StatusBar backgroundColor="#1976D2" />
         
         <View style={styles.header}>
-          <Text style={styles.title}>SUDOXU</Text>
+          <TouchableOpacity
+            onLongPress={activateTestMode}
+            delayLongPress={3000}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.title}>SUDOXU</Text>
+          </TouchableOpacity>
           <Text style={styles.subtitle}>Hexadecimal Sudoku</Text>
         </View>
         
@@ -408,6 +537,9 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <ExpoStatusBar style="light" />
       <StatusBar backgroundColor="#1976D2" />
+      
+      {/* Win Modal */}
+      {renderWinModal()}
       
       <View style={styles.header}>
         <Text style={styles.title}>SUDOXU</Text>
@@ -701,6 +833,83 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    maxWidth: '90%',
+    minWidth: 300,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2196F3',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalStats: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  modalStatText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2196F3',
+    marginBottom: 5,
+  },
+  modalSubtext: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 25,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  modalButtonPrimary: {
+    backgroundColor: '#2196F3',
+  },
+  modalButtonSecondary: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#2196F3',
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalButtonTextSecondary: {
+    color: '#2196F3',
     fontSize: 16,
     fontWeight: 'bold',
   },
