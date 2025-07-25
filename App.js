@@ -31,10 +31,10 @@ const HEX_COLORS = {
   '5': '#008B8B', // Dark Cyan (much darker than cyan)
   '6': '#B8860B', // Dark Goldenrod (darker than yellow)
   '7': '#AA44FF', // Purple
-  '8': '#FF6347', // Tomato Red
+  '8': '#8B4513', // Saddle Brown - changed from tomato red
   '9': '#32CD32', // Lime Green (medium brightness)
   'A': '#8844FF', // Blue Purple
-  'B': '#FF1493', // Deep Pink
+  'B': '#FF1493', // Deep Pink - kept as is
   'C': '#4169E1', // Royal Blue
   'D': '#9ACD32', // Yellow Green (darker than lime)
   'E': '#DC143C', // Crimson
@@ -772,7 +772,7 @@ const styles = StyleSheet.create({
     borderRightColor: '#000000',
   },
   cellText: {
-    fontSize: 10,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   prefilledText: {
