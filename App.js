@@ -639,8 +639,24 @@ export default function App() {
       <View style={styles.header}>
         <Text style={styles.title}>SUDOXU</Text>
         <View style={styles.statsContainer}>
-          <Text style={styles.timer}>Time: {formatTime(elapsedTime)}</Text>
-          <Text style={styles.scoreText}>Score: {totalScore}</Text>
+          <View style={styles.statColumn}>
+            <TouchableOpacity
+              style={[styles.headerButton, styles.menuHeaderButton]}
+              onPress={() => setGameState('menu')}
+            >
+              <Text style={styles.headerButtonText}>Menu</Text>
+            </TouchableOpacity>
+            <Text style={styles.timer}>Time: {formatTime(elapsedTime)}</Text>
+          </View>
+          <View style={styles.statColumn}>
+            <TouchableOpacity
+              style={[styles.headerButton, styles.newGameHeaderButton]}
+              onPress={() => startNewGame(difficulty)}
+            >
+              <Text style={styles.headerButtonText}>New Game</Text>
+            </TouchableOpacity>
+            <Text style={styles.scoreText}>Score: {totalScore}</Text>
+          </View>
         </View>
       </View>
       
@@ -672,6 +688,12 @@ export default function App() {
         </View>
         
         <View style={styles.inputPanel}>
+          <View style={styles.hexGrid}>
+            {HEX_VALUES.map(value => renderHexButton(value))}
+          </View>
+          <TouchableOpacity style={[styles.hexButton, styles.clearButton]} onPress={clearCell}>
+            <Text style={styles.hexButtonText}>Clear</Text>
+          </TouchableOpacity>
           {Platform.OS === 'web' && (
             <View style={styles.keyboardHint}>
               <Text style={styles.keyboardHintText}>
@@ -679,28 +701,6 @@ export default function App() {
               </Text>
             </View>
           )}
-          <View style={styles.hexGrid}>
-            {HEX_VALUES.map(value => renderHexButton(value))}
-          </View>
-          <TouchableOpacity style={[styles.hexButton, styles.clearButton]} onPress={clearCell}>
-            <Text style={styles.hexButtonText}>Clear</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setGameState('menu')}
-          >
-            <Text style={styles.actionButtonText}>Menu</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => startNewGame(difficulty)}
-          >
-            <Text style={styles.actionButtonText}>New Game</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -737,6 +737,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     marginTop: 8,
+  },
+  statColumn: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 4,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  menuHeaderButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)', // Semi-transparent white
+  },
+  newGameHeaderButton: {
+    backgroundColor: 'rgba(76,175,80,0.8)', // Semi-transparent green
+  },
+  headerButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   timer: {
     fontSize: 18,
@@ -899,7 +922,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 6,
-    marginBottom: 12,
+    marginTop: 12,
     borderWidth: 1,
     borderColor: '#4CAF50',
   },
@@ -937,23 +960,6 @@ const styles = StyleSheet.create({
     borderColor: '#D32F2F',
   },
   hexButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 40,
-    paddingVertical: 20,
-  },
-  actionButton: {
-    backgroundColor: '#666666',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
