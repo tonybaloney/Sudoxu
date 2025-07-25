@@ -637,7 +637,6 @@ export default function App() {
       {renderWinModal()}
       
       <View style={styles.header}>
-        <Text style={styles.title}>SUDOXU</Text>
         <View style={styles.statsContainer}>
           <View style={styles.statColumn}>
             <TouchableOpacity
