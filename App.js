@@ -118,6 +118,101 @@ export default function App() {
     return () => clearInterval(interval);
   }, [gameState, gameStartTime]);
 
+  // Keyboard input effect (for desktop)
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      if (gameState !== 'playing' || !selectedCell) return;
+      
+      const key = event.key.toUpperCase();
+      
+      // Handle hex values (0-9, A-F)
+      if (HEX_VALUES.includes(key)) {
+        event.preventDefault();
+        inputValue(key);
+      }
+      // Handle backspace/delete to clear cell
+      else if (key === 'BACKSPACE' || key === 'DELETE') {
+        event.preventDefault();
+        clearCell();
+      }
+      // Handle arrow keys for navigation
+      else if (['ARROWUP', 'ARROWDOWN', 'ARROWLEFT', 'ARROWRIGHT'].includes(key)) {
+        event.preventDefault();
+        navigateWithArrowKeys(key);
+      }
+    };
+
+    // Only add keyboard listeners on web platform
+    if (Platform.OS === 'web') {
+      document.addEventListener('keydown', handleKeyPress);
+      return () => document.removeEventListener('keydown', handleKeyPress);
+    }
+  }, [gameState, selectedCell, board, initialBoard]);
+
+  // Navigate with arrow keys
+  const navigateWithArrowKeys = (key) => {
+    if (!selectedCell || !board) return;
+    
+    const [row, col] = selectedCell;
+    let newRow = row;
+    let newCol = col;
+    
+    switch (key) {
+      case 'ARROWUP':
+        newRow = Math.max(0, row - 1);
+        break;
+      case 'ARROWDOWN':
+        newRow = Math.min(15, row + 1);
+        break;
+      case 'ARROWLEFT':
+        newCol = Math.max(0, col - 1);
+        break;
+      case 'ARROWRIGHT':
+        newCol = Math.min(15, col + 1);
+        break;
+    }
+    
+    // Only move if the target cell is not pre-filled
+    if (initialBoard && initialBoard[newRow][newCol] === null) {
+      setSelectedCell([newRow, newCol]);
+    } else {
+      // If target cell is pre-filled, try to find the next available cell in that direction
+      let searchRow = newRow;
+      let searchCol = newCol;
+      
+      for (let i = 0; i < 16; i++) {
+        if (initialBoard && initialBoard[searchRow][searchCol] === null) {
+          setSelectedCell([searchRow, searchCol]);
+          break;
+        }
+        
+        // Continue searching in the same direction
+        switch (key) {
+          case 'ARROWUP':
+            searchRow = Math.max(0, searchRow - 1);
+            break;
+          case 'ARROWDOWN':
+            searchRow = Math.min(15, searchRow + 1);
+            break;
+          case 'ARROWLEFT':
+            searchCol = Math.max(0, searchCol - 1);
+            break;
+          case 'ARROWRIGHT':
+            searchCol = Math.min(15, searchCol + 1);
+            break;
+        }
+        
+        // If we've reached the edge, stop searching
+        if ((key === 'ARROWUP' && searchRow === 0) ||
+            (key === 'ARROWDOWN' && searchRow === 15) ||
+            (key === 'ARROWLEFT' && searchCol === 0) ||
+            (key === 'ARROWRIGHT' && searchCol === 15)) {
+          break;
+        }
+      }
+    }
+  };
+
   // Combo timer effect
   useEffect(() => {
     let interval;
@@ -564,7 +659,11 @@ export default function App() {
       )}
       
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.gameBoard}>
+        <View 
+          style={styles.gameBoard}
+          // Make the game board focusable on web for keyboard input
+          {...(Platform.OS === 'web' && { tabIndex: 0 })}
+        >
           {Array.from({ length: 16 }, (_, row) => (
             <View key={row} style={styles.row}>
               {Array.from({ length: 16 }, (_, col) => renderCell(row, col))}
@@ -573,6 +672,13 @@ export default function App() {
         </View>
         
         <View style={styles.inputPanel}>
+          {Platform.OS === 'web' && (
+            <View style={styles.keyboardHint}>
+              <Text style={styles.keyboardHintText}>
+                💡 Use keyboard: 0-9, A-F to input • Arrow keys to navigate • Backspace to clear
+              </Text>
+            </View>
+          )}
           <View style={styles.hexGrid}>
             {HEX_VALUES.map(value => renderHexButton(value))}
           </View>
@@ -787,6 +893,21 @@ const styles = StyleSheet.create({
     marginTop: 15,
     paddingHorizontal: 20,
     alignItems: 'center',
+  },
+  keyboardHint: {
+    backgroundColor: '#E8F5E8',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  keyboardHintText: {
+    fontSize: 12,
+    color: '#2E7D32',
+    textAlign: 'center',
+    fontWeight: '500',
   },
   hexGrid: {
     flexDirection: 'row',
