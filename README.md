@@ -22,7 +22,7 @@ A mobile Sudoku game using 16x16 grids with hexadecimal values (0-F) instead of 
 ## Difficulty Levels
 
 - **Easy**: ~196 pre-filled cells (60 empty out of 256) + hints
-- **Medium**: ~116 pre-filled cells (140 empty out of 256)  
+- **Medium**: ~156 pre-filled cells (100 empty out of 256)  
 - **Hard**: ~76 pre-filled cells (180 empty out of 256)
 
 ## Installation & Setup

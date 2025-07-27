@@ -612,15 +612,7 @@ export default function App() {
             onPress={() => startNewGame('medium')}
           >
             <Text style={styles.difficultyButtonText}>Medium</Text>
-            <Text style={styles.difficultyDescription}>~116 filled cells</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.difficultyButton}
-            onPress={() => startNewGame('hard')}
-          >
-            <Text style={styles.difficultyButtonText}>Hard</Text>
-            <Text style={styles.difficultyDescription}>~76 filled cells</Text>
+            <Text style={styles.difficultyDescription}>~156 filled cells</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

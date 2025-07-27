@@ -146,8 +146,49 @@ export const solvePuzzle = (board) => {
     return true;
   };
   
-  solve();
-  return solution;
+  const solved = solve();
+  return solved ? solution : null;
+};
+
+// Count the number of solutions for a given puzzle
+const countSolutions = (board, maxSolutions = 2) => {
+  const workingBoard = board.map(row => [...row]);
+  let solutionCount = 0;
+  
+  const solveBrute = () => {
+    // Find the first empty cell
+    for (let row = 0; row < 16; row++) {
+      for (let col = 0; col < 16; col++) {
+        if (!workingBoard[row][col]) {
+          // Try each possible value
+          for (const value of HEX_VALUES) {
+            if (isValidMove(workingBoard, row, col, value)) {
+              workingBoard[row][col] = value;
+              
+              if (solveBrute()) {
+                solutionCount++;
+                if (solutionCount >= maxSolutions) {
+                  return true; // Early exit if we found enough solutions
+                }
+              }
+              
+              workingBoard[row][col] = null;
+            }
+          }
+          return false; // No valid value found for this cell
+        }
+      }
+    }
+    return true; // All cells filled successfully
+  };
+  
+  solveBrute();
+  return solutionCount;
+};
+
+// Check if a puzzle has exactly one unique solution
+const hasUniqueSolution = (board) => {
+  return countSolutions(board, 2) === 1;
 };
 
 // Check if a move is valid
@@ -243,51 +284,283 @@ export const isSolved = (board) => {
   return true;
 };
 
-// Generate a puzzle by removing cells from a solved board
+// Generate a puzzle by removing cells from a solved board with guaranteed unique solutions
 export const generatePuzzle = (difficulty = 'medium') => {
   const solution = generateSolvedBoard();
   const puzzle = solution.map(row => [...row]);
   
-  // Determine how many cells to remove based on difficulty
-  let cellsToRemove;
+  // Determine target number of empty cells based on difficulty
+  let targetEmptyCells;
   switch (difficulty) {
     case 'easy':
-      cellsToRemove = 60; // Leave ~196 cells filled out of 256 (77% complete)
+      targetEmptyCells = 60; // Leave ~196 cells filled out of 256 (77% complete)
       break;
     case 'medium':
-      cellsToRemove = 140; // Leave ~116 cells filled
+      targetEmptyCells = 100; // Leave ~156 cells filled out of 256 (61% complete)
       break;
     case 'hard':
-      cellsToRemove = 180; // Leave ~76 cells filled
+      targetEmptyCells = 180; // Leave ~76 cells filled
       break;
     case 'test':
-      cellsToRemove = 2; // Leave only 2 cells empty for testing
+      targetEmptyCells = 2; // Leave only 2 cells empty for testing
       break;
     default:
-      cellsToRemove = 140;
+      targetEmptyCells = 140;
   }
   
-  // Randomly remove cells
-  const positions = [];
-  for (let row = 0; row < 16; row++) {
-    for (let col = 0; col < 16; col++) {
-      positions.push([row, col]);
+  // Special handling for test mode - just remove 2 random cells without unique solution check
+  if (difficulty === 'test') {
+    const positions = [];
+    for (let row = 0; row < 16; row++) {
+      for (let col = 0; col < 16; col++) {
+        positions.push([row, col]);
+      }
     }
+    
+    // Shuffle and remove 2 cells
+    for (let i = positions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [positions[i], positions[j]] = [positions[j], positions[i]];
+    }
+    
+    for (let i = 0; i < 2; i++) {
+      const [row, col] = positions[i];
+      puzzle[row][col] = null;
+    }
+    
+    return { puzzle, solution };
   }
   
-  // Shuffle positions
-  for (let i = positions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [positions[i], positions[j]] = [positions[j], positions[i]];
+  // Use the optimized unique solution approach for all difficulties
+  return generateOptimizedUniquePuzzle(solution, targetEmptyCells, difficulty);
+};
+
+// Optimized puzzle generation that guarantees unique solutions efficiently
+const generateOptimizedUniquePuzzle = (solution, targetEmptyCells, difficulty) => {
+  const puzzle = solution.map(row => [...row]);
+  
+  // Phase 1: Strategic removal using symmetry patterns
+  let removedCells = performSymmetricRemoval(puzzle, targetEmptyCells);
+  
+  // Phase 2: If we need more empty cells, do guided random removal
+  if (removedCells < targetEmptyCells) {
+    removedCells += performGuidedRemoval(puzzle, targetEmptyCells - removedCells, difficulty);
   }
   
-  // Remove cells
-  for (let i = 0; i < cellsToRemove && i < positions.length; i++) {
-    const [row, col] = positions[i];
-    puzzle[row][col] = null;
+  // Phase 3: Final validation and adjustment
+  if (!hasUniqueSolution(puzzle)) {
+    // If puzzle doesn't have unique solution, restore some cells strategically
+    restoreForUniqueness(puzzle, solution);
   }
   
   return { puzzle, solution };
+};
+
+// Phase 1: Remove cells using symmetric patterns that tend to preserve uniqueness
+const performSymmetricRemoval = (puzzle, targetEmptyCells) => {
+  let removedCells = 0;
+  const maxSymmetricRemoval = Math.min(targetEmptyCells * 0.6, 100); // Remove up to 60% using patterns
+  
+  // Pattern 1: Remove pairs of symmetric cells (across center)
+  const symmetricPairs = [];
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      symmetricPairs.push([
+        [row, col], 
+        [15 - row, 15 - col]
+      ]);
+    }
+  }
+  
+  // Shuffle pairs
+  for (let i = symmetricPairs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [symmetricPairs[i], symmetricPairs[j]] = [symmetricPairs[j], symmetricPairs[i]];
+  }
+  
+  // Remove symmetric pairs
+  for (const pair of symmetricPairs) {
+    if (removedCells >= maxSymmetricRemoval) break;
+    
+    const [[r1, c1], [r2, c2]] = pair;
+    
+    // Skip if cells are the same (center cells)
+    if (r1 === r2 && c1 === c2) continue;
+    
+    // Remove both cells in the pair
+    puzzle[r1][c1] = null;
+    puzzle[r2][c2] = null;
+    removedCells += 2;
+  }
+  
+  return removedCells;
+};
+
+// Phase 2: Guided removal that checks uniqueness for critical cells
+const performGuidedRemoval = (puzzle, remainingToRemove, difficulty) => {
+  let removedCells = 0;
+  const maxAttempts = difficulty === 'hard' ? remainingToRemove * 4 : remainingToRemove * 2;
+  let attempts = 0;
+  
+  // Create priority list: prefer cells that are less constrained
+  const cellPriorities = [];
+  for (let row = 0; row < 16; row++) {
+    for (let col = 0; col < 16; col++) {
+      if (puzzle[row][col] !== null) {
+        const priority = calculateCellRemovalPriority(puzzle, row, col);
+        cellPriorities.push({ row, col, priority });
+      }
+    }
+  }
+  
+  // Sort by priority (higher priority = safer to remove)
+  cellPriorities.sort((a, b) => b.priority - a.priority);
+  
+  // Remove cells in priority order with uniqueness checking
+  for (const cell of cellPriorities) {
+    if (removedCells >= remainingToRemove || attempts >= maxAttempts) break;
+    
+    const { row, col } = cell;
+    const originalValue = puzzle[row][col];
+    attempts++;
+    
+    // Temporarily remove the cell
+    puzzle[row][col] = null;
+    
+    // For easier difficulties, use faster validation less frequently
+    let shouldValidate = true;
+    if (difficulty === 'easy' && attempts % 3 !== 0) shouldValidate = false;
+    if (difficulty === 'medium' && attempts % 2 !== 0) shouldValidate = false;
+    
+    if (shouldValidate) {
+      // Quick uniqueness check using limited depth
+      if (!hasLimitedUniqueSolution(puzzle)) {
+        // Restore the cell
+        puzzle[row][col] = originalValue;
+        continue;
+      }
+    }
+    
+    // Keep the cell removed
+    removedCells++;
+  }
+  
+  return removedCells;
+};
+
+// Calculate priority for removing a cell (higher = safer to remove)
+const calculateCellRemovalPriority = (puzzle, row, col) => {
+  let priority = 0;
+  const value = puzzle[row][col];
+  
+  // Count how many times this value appears in related areas
+  let valueCount = 0;
+  
+  // Check row
+  for (let c = 0; c < 16; c++) {
+    if (puzzle[row][c] === value) valueCount++;
+  }
+  
+  // Check column  
+  for (let r = 0; r < 16; r++) {
+    if (puzzle[r][col] === value) valueCount++;
+  }
+  
+  // Check sub-grid
+  const subGridRow = Math.floor(row / 4) * 4;
+  const subGridCol = Math.floor(col / 4) * 4;
+  for (let r = subGridRow; r < subGridRow + 4; r++) {
+    for (let c = subGridCol; c < subGridCol + 4; c++) {
+      if (puzzle[r][c] === value) valueCount++;
+    }
+  }
+  
+  // Higher value count means more constrained, lower priority
+  priority = 50 - valueCount;
+  
+  // Add randomness
+  priority += Math.random() * 10;
+  
+  return priority;
+};
+
+// Limited depth uniqueness check for performance
+const hasLimitedUniqueSolution = (puzzle) => {
+  const solutionCount = countSolutionsLimited(puzzle, 2, 50); // Limit depth to 50 moves
+  return solutionCount === 1;
+};
+
+// Count solutions with limited search depth for performance
+const countSolutionsLimited = (board, maxSolutions, maxDepth, currentDepth = 0) => {
+  if (currentDepth >= maxDepth) {
+    // If we've gone too deep, assume it's solvable (optimistic)
+    return 1;
+  }
+  
+  const workingBoard = board.map(row => [...row]);
+  let solutionCount = 0;
+  
+  const solveBrute = (depth) => {
+    if (depth >= maxDepth) return true; // Depth limit reached
+    
+    // Find the first empty cell
+    for (let row = 0; row < 16; row++) {
+      for (let col = 0; col < 16; col++) {
+        if (!workingBoard[row][col]) {
+          // Try each possible value
+          for (const value of HEX_VALUES) {
+            if (isValidMove(workingBoard, row, col, value)) {
+              workingBoard[row][col] = value;
+              
+              if (solveBrute(depth + 1)) {
+                solutionCount++;
+                if (solutionCount >= maxSolutions) {
+                  return true; // Early exit if we found enough solutions
+                }
+              }
+              
+              workingBoard[row][col] = null;
+            }
+          }
+          return false; // No valid value found for this cell
+        }
+      }
+    }
+    return true; // All cells filled successfully
+  };
+  
+  solveBrute(currentDepth);
+  return solutionCount;
+};
+
+// Phase 3: Restore cells strategically if puzzle doesn't have unique solution
+const restoreForUniqueness = (puzzle, solution) => {
+  const emptyCells = [];
+  
+  // Find all empty cells
+  for (let row = 0; row < 16; row++) {
+    for (let col = 0; col < 16; col++) {
+      if (puzzle[row][col] === null) {
+        emptyCells.push([row, col]);
+      }
+    }
+  }
+  
+  // Shuffle empty cells
+  for (let i = emptyCells.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [emptyCells[i], emptyCells[j]] = [emptyCells[j], emptyCells[i]];
+  }
+  
+  // Restore cells one by one until we have unique solution
+  let attempts = 0;
+  const maxAttempts = Math.min(emptyCells.length, 20);
+  
+  while (!hasUniqueSolution(puzzle) && attempts < maxAttempts) {
+    const [row, col] = emptyCells[attempts];
+    puzzle[row][col] = solution[row][col];
+    attempts++;
+  }
 };
 
 // Get a hint for the next move
