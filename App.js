@@ -614,6 +614,19 @@ export default function App() {
             <Text style={styles.difficultyButtonText}>Medium</Text>
             <Text style={styles.difficultyDescription}>~156 filled cells</Text>
           </TouchableOpacity>
+          
+          <View style={styles.hexExplanation}>
+            <Text style={styles.hexExplanationTitle}>What is Hexadecimal?</Text>
+            <Text style={styles.hexExplanationText}>
+              Hexadecimal uses 16 symbols instead of the usual 10 digits. It goes: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F
+            </Text>
+            <Text style={styles.hexExplanationSubtext}>
+              Each symbol represents a value from 0 to 15. Think of A=10, B=11, C=12, D=13, E=14, F=15
+            </Text>
+            <Text style={styles.hexExplanationWhy}>
+              Why 16? It's perfect for computers! Since computers use binary (base-2), and 16 is 2⁴, each hex digit represents exactly 4 binary digits. This makes hex incredibly useful in programming and digital systems.
+            </Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -835,6 +848,43 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 40,
     color: '#333',
+  },
+  hexExplanation: {
+    backgroundColor: '#F0F8FF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 30,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196F3',
+  },
+  hexExplanationTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1976D2',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  hexExplanationText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  hexExplanationSubtext: {
+    fontSize: 12,
+    color: '#666',
+    lineHeight: 18,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  hexExplanationWhy: {
+    fontSize: 13,
+    color: '#1976D2',
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: 8,
+    fontWeight: '500',
   },
   difficultyButton: {
     backgroundColor: '#2196F3',
