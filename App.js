@@ -600,7 +600,7 @@ export default function App() {
           <Text style={styles.menuTitle}>Select Difficulty</Text>
           
           <TouchableOpacity
-            style={styles.difficultyButton}
+            style={[styles.difficultyButton, styles.easyButton]}
             onPress={() => startNewGame('easy')}
           >
             <Text style={styles.difficultyButtonText}>Easy</Text>
@@ -608,7 +608,7 @@ export default function App() {
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={styles.difficultyButton}
+            style={[styles.difficultyButton, styles.mediumButton]}
             onPress={() => startNewGame('medium')}
           >
             <Text style={styles.difficultyButtonText}>Medium</Text>
@@ -730,6 +730,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    letterSpacing: 3,
+    textShadowColor: '#00FF00',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
   },
   subtitle: {
     fontSize: 14,
@@ -892,6 +897,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 20,
     alignItems: 'center',
+  },
+  easyButton: {
+    backgroundColor: '#4CAF50', // Green
+  },
+  mediumButton: {
+    backgroundColor: '#FF9800', // Orange
   },
   difficultyButtonText: {
     fontSize: 20,
